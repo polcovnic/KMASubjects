@@ -20,7 +20,7 @@ class Sender:
     PROXY_LIST_URL = 'https://free-proxy-list.net/'
     PROXY_TYPE = 'elite proxy'
     HEADERS = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) Gecko/20100101 Firefox/80.0'}
-    HTTP_BIN = 'https://httpbin.org/ip'
+    HTTP_BIN_URL = 'https://httpbin.org/ip'
     CHROME_EXECUTABLE = 'D:/ChromeDriver/chromedriver_win32/chromedriver.exe'
 
     def __init__(self):
@@ -32,6 +32,7 @@ class Sender:
 
     def get_proxies(self):
         r = requests.get(self.PROXY_LIST_URL)
+
         soup = BeautifulSoup(r.content, 'html.parser')
         table = soup.find('tbody')
         proxies = []
@@ -41,11 +42,15 @@ class Sender:
                 proxies.append(proxy)
             else:
                 pass
+        if len(proxies) == 0:
+            logging.warning("Can't get any proxy")
+        else:
+            logging.debug(f"Successfully got {len(proxies)} proxies")
         return proxies
 
     def check_for_available_proxy(self, proxy):
         try:
-            r = requests.get(self.HTTP_BIN, headers=self.HEADERS,
+            r = requests.get(self.HTTP_BIN_URL, headers=self.HEADERS,
                              proxies={'http': 'http://' + proxy, 'https': 'http://' + proxy}, timeout=1)
             # print(r.json(), r.status_code)
         except:
@@ -55,7 +60,7 @@ class Sender:
                 self.first_available_proxy = proxy
                 logger.debug('First available proxy added')
             self.available_proxies.append(proxy)
-            logger.debug(f'Another one available proxy added (available proxies = {len(self.available_proxies)}')
+            logger.debug(f'Another one available proxy added (available proxies = {len(self.available_proxies)})')
             return proxy
 
     def _get_working_proxy(self):
@@ -69,22 +74,42 @@ class Sender:
         for proxy in self.available_proxies:
             yield proxy
 
-    def _send_request(self, proxy):
+    def _send_get_request(self, proxy, params):
         try:
             if not self.proxy_generator_instance:
                 self.proxy_generator_instance = self._proxy_generator()
             response = requests.get(self.target_url, headers=self.HEADERS,
-                                    proxies={'http': 'http://' + proxy, 'https': 'http://' + proxy}, timeout=15)
-            logger.info('Successfully get response through proxy')
+                                    proxies={'http': 'http://' + proxy, 'https': 'http://' + proxy},
+                                    timeout=15, params=params)
+            logger.info('Successfully GET response through proxy')
             return response
-        except:  # some send error
+        except:  # some errors with sending
             try:
-                logger.debug("Send through another proxy")
-                return self._send_request(next(self.proxy_generator_instance))
+                logger.debug("Send GET through another proxy")
+                return self._send_get_request(next(self.proxy_generator_instance), params)
             except StopIteration:
-                logger.warning('No available proxies found, sending through my ip')
-                resp = requests.get(self.target_url, headers=self.HEADERS)
-                logger.warning('Successfully sent through my ip')
+                logger.warning('No available proxies found in GET, sending through my ip')
+                resp = requests.get(self.target_url, headers=self.HEADERS, params=params)
+                logger.warning('Successfully sent GET through my ip')
+                return resp
+
+    def _send_post_request(self, proxy, data):
+        try:
+            if not self.proxy_generator_instance:
+                self.proxy_generator_instance = self._proxy_generator()
+            response = requests.post(self.target_url, headers=self.HEADERS,
+                                     proxies={'http': 'http://' + proxy, 'https': 'http://' + proxy},
+                                     timeout=15, data=data)
+            logger.info('Successfully POST response through proxy')
+            return response
+        except:  # some errors with sending
+            try:
+                logger.debug("Send POST through another proxy")
+                return self._send_post_request(next(self.proxy_generator_instance), data)
+            except StopIteration:
+                logger.warning('No available proxies found in POST, sending through my ip')
+                resp = requests.post(self.target_url, headers=self.HEADERS, data=data)
+                logger.warning('Successfully sent POST through my ip')
                 return resp
 
     def _update_proxies(self):
@@ -92,16 +117,23 @@ class Sender:
         thread.start()
         while self.first_available_proxy is None:
             time.sleep(0.01)
+        logger.info('Proxies are updated successfully')
 
-    def send(self, target_url):
+    def get(self, target_url, params=None):
         self.target_url = target_url
         if len(self.available_proxies) == 0:
             self._update_proxies()
-        print(self.available_proxies)
-        response = self._send_request(self.first_available_proxy)
+        response = self._send_get_request(self.first_available_proxy, params)
         # with open('index.html', 'w', encoding='utf-8') as file:
         #     file.write(response.text)
         # print('Successfully scraped html')
+        return response
+
+    def post(self, target_url, data=None):
+        self.target_url = target_url
+        if len(self.available_proxies) == 0:
+            self._update_proxies()
+        response = self._send_post_request(self.first_available_proxy, data)
         return response
 
     def get_working_proxies(self) -> list[str]:
@@ -110,9 +142,10 @@ class Sender:
             thread.start()
             while self.first_available_proxy is None:
                 time.sleep(0.01)
+            logger.info('Working proxies are successfully got')
         return self.available_proxies
 
 
 if __name__ == '__main__':
     sender = Sender()
-    sender.send('https://docs.python.org/3/library/concurrent.futures.html')
+    sender.get('https://docs.python.org/3/library/concurrent.futures.html')
