@@ -1,12 +1,19 @@
+import logging
 import time
-import requests
-import io
-from typing import overload
 from concurrent.futures import ThreadPoolExecutor
-from threading import Lock, Thread
+from threading import Thread
 
+import requests
 from bs4 import BeautifulSoup
-from selenium import webdriver
+
+# setup
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+file_handler = logging.FileHandler('sender.log')
+formatter = logging.Formatter('%(asctime)s %(name)s %(levelname)s: %(message)s')
+file_handler.setFormatter(formatter)
+file_handler.setLevel(logging.DEBUG)
+logger.addHandler(file_handler)
 
 
 class Sender:
@@ -20,8 +27,8 @@ class Sender:
         self.target_url = None
         self.available_proxies = []
         self.first_available_proxy: str = None
-        self.lock = Lock()
         self.proxy_generator_instance = None
+        self._update_proxies()
 
     def get_proxies(self):
         r = requests.get(self.PROXY_LIST_URL)
@@ -46,7 +53,9 @@ class Sender:
         else:
             if not self.first_available_proxy:
                 self.first_available_proxy = proxy
+                logger.debug('First available proxy added')
             self.available_proxies.append(proxy)
+            logger.debug(f'Another one available proxy added (available proxies = {len(self.available_proxies)}')
             return proxy
 
     def _get_working_proxy(self):
@@ -60,34 +69,23 @@ class Sender:
         for proxy in self.available_proxies:
             yield proxy
 
-    def _send_request(self, proxy, chrome):
+    def _send_request(self, proxy):
         try:
-            if chrome is None:
-                if not self.proxy_generator_instance:
-                    self.proxy_generator_instance = self._proxy_generator()
-                response = requests.get(self.target_url, headers=self.HEADERS,
-                                        proxies={'http': 'http://' + proxy, 'https': 'http://' + proxy}, timeout=15)
-                return response
-            else:
-                chrome_options = webdriver.ChromeOptions()
-                chrome_options.add_argument(f'--proxy-server={proxy}')
-
-                chrome = webdriver.Chrome(options=chrome_options,
-                                          executable_path='D:/ChromeDriver/chromedriver_win32/chromedriver.exe')
-                return chrome.get(self.target_url)
-        except:
+            if not self.proxy_generator_instance:
+                self.proxy_generator_instance = self._proxy_generator()
+            response = requests.get(self.target_url, headers=self.HEADERS,
+                                    proxies={'http': 'http://' + proxy, 'https': 'http://' + proxy}, timeout=15)
+            logger.info('Successfully get response through proxy')
+            return response
+        except:  # some send error
             try:
-                return self._send_request(next(self.proxy_generator_instance), chrome)
+                logger.debug("Send through another proxy")
+                return self._send_request(next(self.proxy_generator_instance))
             except StopIteration:
-                if chrome is None:
-                    return requests.get(self.target_url, headers=self.HEADERS)
-                else:
-                    chrome_options = webdriver.ChromeOptions()
-                    chrome_options.add_argument(f'--proxy-server={proxy}')
-
-                    chrome = webdriver.Chrome(options=chrome_options,
-                                              executable_path='D:/ChromeDriver/chromedriver_win32/chromedriver.exe')
-                    return chrome.get(self.target_url)
+                logger.warning('No available proxies found, sending through my ip')
+                resp = requests.get(self.target_url, headers=self.HEADERS)
+                logger.warning('Successfully sent through my ip')
+                return resp
 
     def _update_proxies(self):
         thread = Thread(target=self._get_working_proxy)
@@ -95,12 +93,12 @@ class Sender:
         while self.first_available_proxy is None:
             time.sleep(0.01)
 
-    def send(self, target_url, chrome=None):
+    def send(self, target_url):
         self.target_url = target_url
         if len(self.available_proxies) == 0:
             self._update_proxies()
         print(self.available_proxies)
-        response = self._send_request(self.first_available_proxy, chrome)
+        response = self._send_request(self.first_available_proxy)
         # with open('index.html', 'w', encoding='utf-8') as file:
         #     file.write(response.text)
         # print('Successfully scraped html')
