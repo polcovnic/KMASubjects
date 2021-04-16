@@ -1,20 +1,18 @@
+import logging
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor, Future
 from threading import Thread
-import logging
-import json
-import time
-import random
 
-import requests
 from bs4 import BeautifulSoup
 
 from saz_signuper.sender import Sender
+from saz_signuper.signuper import Signuper
 
 # logger setup
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-file_handler = logging.FileHandler('saz_signuper/signuper.log')
+file_handler = logging.FileHandler('saz_signuper/subject_signuper.log')
 formatter = logging.Formatter('[%(asctime)s] %(name)s %(levelname)s: %(message)s')
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
@@ -30,20 +28,17 @@ class Subject:
         return f'<{self.name}>'
 
 
-class Signuper:
+class SubjectSignuper(Signuper):
     USE_PROXY = False
-    PHPSESSID_FILENAME = 'saz_signuper/sess_id.json'
     USE_CONCURRENCY = False
-    RESEND_DELAY = 2
+    HTML_FILES_FILENAME = f'{Signuper.HTML_FILES_FILENAME}/subjects'
 
-    def __init__(self, subjects: list[Subject]):
+    def __init__(self, subjects: list[Subject], cookies):
+        super().__init__(cookies)
         self.subjects = subjects
         if self.USE_PROXY:
             self.sender = Sender()
         self.result_dict: dict[Subject, Future] = {}
-        with open(self.PHPSESSID_FILENAME, 'r') as file:
-            self.phpsessid = json.load(file)
-        self.resend_attempts = 20
         logger.debug('Signuper created')
 
     def _signup(self, subject: Subject):
@@ -51,25 +46,15 @@ class Signuper:
             logger.error('Resend attempts ended')
             return False
         # getting page for csrf
-        if self.USE_PROXY:
-            response = self.sender.get(subject.url, params={'PHPSESSID': self.phpsessid['value']})
-        else:
-            response = requests.get(subject.url, cookies={'PHPSESSID': self.phpsessid['value']})
-        # GET response logging
-        if response.status_code == 200:
-            logger.info(f'Successfully get {subject} subject page, 200')
-        elif int(response.status_code / 100) == 4:
-            logger.error(f'Client error {response.status_code}, GET, subject: {subject}')
-        elif int(response.status_code / 100) == 5:
-            logger.warning(f'Server error {response.status_code}, GET, subject: {subject}')
-            time.sleep(self.RESEND_DELAY)
-            logger.info(f'Resending GET request for subject: {subject}, attempts left: {self.resend_attempts}')
-            return self._signup(subject)
+        response = self.get(subject.url)
+        # GET logging
+        self.log(logger, response, False)
         soup = BeautifulSoup(response.text, 'html.parser')
         body = soup.find('h1')
+        # checking for 'failed success' error when status code equals 2xx
         if re.search('exception|error', str(body).lower()) is not None:
             logger.warning(f'Exception with status code {response.status_code}, GET, subject: {subject}')
-            self.write_errors_html(response.text)
+            self.write_logs_html(response.text, response.status_code)
             time.sleep(self.RESEND_DELAY)
             logger.info(f'Resending POST request for subject: {subject}, attempts left: {self.resend_attempts}')
             return self._signup(subject)
@@ -81,22 +66,29 @@ class Signuper:
         except AttributeError:
             logger.warning('Html file without csrf')
         # sending request to sign up for a subject
-        if self.USE_PROXY:
-            post_response = self.sender.post(subject.url, data={'csrf': token, 'PHPSESSID': self.phpsessid['value']})
-        else:
-            post_response = requests.post(subject.url, data={'csrf': token},
-                                          cookies={'PHPSESSID': self.phpsessid['value']})
+        response = self.post(re.sub(r'/course/(\d+)', r'/next/course/\g<1>/enroll', subject.url),
+                             headers={'x-csrf-token': token})
         # POST response logging
-        if post_response.status_code == 201:
-            logger.info(f'Successfully signed up on {subject} subject, 201')
+        self.log(logger, response, False)
+
+    def log(self, inner_logger: logging.Logger, response, is_post: bool, subject=None):
+        method = 'POST' if is_post else 'GET'
+        if int(response.status_code / 100) == 2:
+            inner_logger.info(f'Successfully signed up on {subject} subject, {response.status_code}')
+            self.write_logs_html(response.text, response.status_code)
             return True
-        elif int(post_response.status_code / 100) == 4:
-            logger.error(f'Client error {response.status_code}, POST, subject: {subject}')
-        elif int(post_response.status_code / 100) == 5:
-            logger.warning(f'Server error {response.status_code},  POST, subject: {subject}')
+        elif int(response.status_code / 100) == 4:
+            inner_logger.error(f'Client error {response.status_code}, {method}, subject: {subject}')
+            self.write_logs_html(response.text, response.status_code)
+        elif int(response.status_code / 100) == 5:
+            inner_logger.warning(f'Server error {response.status_code},  POST, subject: {subject}')
             time.sleep(self.RESEND_DELAY)
-            logger.info(f'Resending POST request for subject: {subject}, attempts left: {self.resend_attempts}')
+            inner_logger.info(f'Resending POST request for subject: {subject}, attempts left: {self.resend_attempts}')
+            self.write_logs_html(response.text, response.status_code, 'error')
             return self._signup(subject)
+        else:
+            inner_logger.critical(f"Lol, it's {response.status_code}")
+            self.write_logs_html(response.text, response.status_code, 'critical')
 
     def _start_signup(self):
         executor = ThreadPoolExecutor()
@@ -114,20 +106,8 @@ class Signuper:
                 self._signup(subject)
         return self.result_dict
 
-    @staticmethod
-    def get_csrf(html) -> str:
-        s = re.search(r'<meta name="csrf-token" content="(.+)">', html)
-        if s is None:
-            logger.error("Can't find csrf token")
-        return s.group(1)
-
-    @staticmethod
-    def write_errors_html(file_content: str):
-        with open(f'{random.randint(0, 1000)}_{int(time.time())}.html', 'w') as file:
-            file.write(file_content)
-
 
 if __name__ == '__main__':
-    signuper = Signuper([Subject('http://127.0.0.1:5000/python-programming', 'Python course'),
-                         Subject('http://127.0.0.1:5000/java-programming', 'Java course')])
+    signuper = SubjectSignuper([Subject('http://127.0.0.1:5000/python-programming', 'Python course'),
+                                Subject('http://127.0.0.1:5000/java-programming', 'Java course')], [])
     print(signuper.execute())
