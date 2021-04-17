@@ -25,7 +25,7 @@ class GroupSignuper(Signuper):
 
     def execute(self):
         response = self.get(self.GROUPS_URL)
-        self.log(logger, response.status_code, False)
+        self.log(logger, response, False)
         # getting csrf token
         token = ''
         try:

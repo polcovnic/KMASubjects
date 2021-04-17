@@ -2,23 +2,23 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
 from threading import Thread
+import heapq
 
 import requests
 from bs4 import BeautifulSoup
 
-# setup
+# logger setup
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 file_handler = logging.FileHandler('sender.log')
-formatter = logging.Formatter('%(asctime)s %(name)s %(levelname)s: %(message)s')
+formatter = logging.Formatter('[%(asctime)s] %(name)s %(levelname)s: %(message)s')
 file_handler.setFormatter(formatter)
-file_handler.setLevel(logging.DEBUG)
 logger.addHandler(file_handler)
 
 
 class Sender:
     PROXY_LIST_URL = 'https://free-proxy-list.net/'
-    PROXY_TYPE = 'elite proxy'
+    PROXY_FILTER = 'elite proxy'
     HEADERS = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) Gecko/20100101 Firefox/80.0'}
     HTTP_BIN_URL = 'https://httpbin.org/ip'
     CHROME_EXECUTABLE = 'D:/ChromeDriver/chromedriver_win32/chromedriver.exe'
@@ -29,23 +29,25 @@ class Sender:
         self.first_available_proxy: str = None
         self.proxy_generator_instance = None
         self._update_proxies()
+        self.end_of_getting_proxies = False
 
-    def get_proxies(self):
+    def __get_proxies(self):
         r = requests.get(self.PROXY_LIST_URL)
 
         soup = BeautifulSoup(r.content, 'html.parser')
         table = soup.find('tbody')
         proxies = []
         for row in table:
-            if row.find_all('td')[4].text == self.PROXY_TYPE:
+            if row.find_all('td')[4].text == self.PROXY_FILTER:
                 proxy = ':'.join([row.find_all('td')[0].text, row.find_all('td')[1].text])
                 proxies.append(proxy)
+                # print(proxy)
             else:
                 pass
         if len(proxies) == 0:
-            logging.warning("Can't get any proxy")
+            logger.warning("Can't get any proxy")
         else:
-            logging.debug(f"Successfully got {len(proxies)} proxies")
+            logger.debug(f"Successfully got {len(proxies)} proxies")
         return proxies
 
     def check_for_available_proxy(self, proxy):
@@ -64,11 +66,14 @@ class Sender:
             return proxy
 
     def _get_working_proxy(self):
-        proxy_list = self.get_proxies()
+        self.end_of_getting_proxies = False
+        proxy_list = self.__get_proxies()
         executor = ThreadPoolExecutor()
         for proxy in proxy_list:
             executor.submit(self.check_for_available_proxy, proxy)
         executor.shutdown()
+        self.end_of_getting_proxies = True
+        print(self.end_of_getting_proxies)
 
     def _proxy_generator(self):
         for proxy in self.available_proxies:
@@ -137,15 +142,11 @@ class Sender:
         return response
 
     def get_working_proxies(self) -> list[str]:
-        if len(self.available_proxies) == 0:
-            thread = Thread(target=self._get_working_proxy)
-            thread.start()
-            while self.first_available_proxy is None:
-                time.sleep(0.01)
-            logger.info('Working proxies are successfully got')
-        return self.available_proxies
+        thread = Thread(target=self._get_working_proxy, daemon=True)
+        thread.start()
+        return self.available_proxies  # , self.end_of_getting_proxies
 
 
 if __name__ == '__main__':
     sender = Sender()
-    sender.get('https://docs.python.org/3/library/concurrent.futures.html')
+    print(sender.get("https://httpbin.org/ip").json())

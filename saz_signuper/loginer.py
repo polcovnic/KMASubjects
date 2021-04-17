@@ -7,7 +7,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.wait import WebDriverWait
 
-from sender import Sender
+from saz_signuper.sender import Sender
 
 # setup
 logger = logging.getLogger(__name__)
@@ -23,13 +23,12 @@ class LeakOfDataException(Exception):
     pass
 
 
-class SeleniumChromeSender:
+class Loginer:
     WITH_PROXY = False  # having some problems with it
     WRITE_COOKIE_TO_FILE = True
 
     MS_URL = 'https://login.microsoftonline.com/'
     SAZ_URL = 'https://my.ukma.edu.ua/auth/o365'
-    PHPSESSID_FILENAME = 'sess_id.json'
 
     # MS elements
     LC_MS_LOGIN_ID = 'i0116'
@@ -47,15 +46,15 @@ class SeleniumChromeSender:
                 chrome_options.add_argument(f'--proxy-server={Sender().get_working_proxies()[0]}')
             self.chrome = webdriver.Chrome(options=chrome_options,
                                            executable_path='D:/ChromeDriver/chromedriver_win32/chromedriver.exe')
-        except Exception:
+        except:
             logger.error("Can't start chrome")
         else:
-            logger.info('Chrome started successfully')
+            logger.debug('Chrome started successfully')
 
     def _ms_login_in(self, email, password):
         self.chrome.get(self.MS_URL)
         WebDriverWait(self.chrome, 10).until(
-            expected_conditions.presence_of_element_located(
+            expected_conditions.visibility_of_element_located(
                 (By.ID, self.LC_MS_LOGIN_ID)
             )
         )
@@ -65,35 +64,38 @@ class SeleniumChromeSender:
         next_button = self.chrome.find_element_by_id(self.LC_MS_NEXT_BUTTON_ID)
         next_button.click()
         WebDriverWait(self.chrome, 10).until(
-            expected_conditions.presence_of_element_located(
+            expected_conditions.visibility_of_element_located(
                 (By.ID, self.LC_MS_PASSWORD_ID)
             )
         )
         # filling password
         password_input_field = self.chrome.find_element_by_id(self.LC_MS_PASSWORD_ID)
         password_input_field.send_keys(password)
-        time.sleep(1)  # doesn't work without delay
         WebDriverWait(self.chrome, 10).until(
-            expected_conditions.presence_of_element_located(
+            expected_conditions.visibility_of_element_located(
                 (By.ID, self.LC_MS_NEXT_BUTTON_ID)
             )
         )
         sign_in_button = self.chrome.find_element_by_id(self.LC_MS_NEXT_BUTTON_ID)
         sign_in_button.click()
-        time.sleep(1)
+        WebDriverWait(self.chrome, 10).until(
+            expected_conditions.visibility_of_element_located(
+                (By.ID, self.LC_MS_NEXT_BUTTON_ID)
+            )
+        )
         # do not exit button
         sign_in_button = self.chrome.find_element_by_id(self.LC_MS_NEXT_BUTTON_ID)
         sign_in_button.click()
 
-    def _saz_sign_up(self):
+    def _saz_sign_in(self):
         self.chrome.get(self.SAZ_URL)  # this url redirects to MS365 auth
         self.phpsessid = self.chrome.get_cookie('PHPSESSID')  # getting important cookie
 
-        if self.WRITE_COOKIE_TO_FILE:  # writing this cookie to a file
-            with open(self.PHPSESSID_FILENAME, 'w') as file:
-                json.dump(self.phpsessid, file)
+        # if self.WRITE_COOKIE_TO_FILE:  # writing this cookie to a file
+        #     with open(self.PHPSESSID_FILENAME, 'w') as file:
+        #         json.dump(self.phpsessid, file)
 
-    def execute(self, email=None, password=None):
+    def execute(self, email=None, password=None) -> list:  # returns cookie
         if not (email and password):  # checking for not nullable credentials
             logger.warning("Loginer has started without email or password or both")
             raise LeakOfDataException()
@@ -106,15 +108,21 @@ class SeleniumChromeSender:
             logger.info('Successfully logged in MS365')
         # logging in SAZ
         try:
-            self._saz_sign_up()
+            self._saz_sign_in()
         except Exception:
-            logger.error("Can't logging in SAZ")
+            logger.error("Can't login in SAZ")
         else:
             logger.info('Successfully logged in SAZ')
 
+        cookies = self.chrome.get_cookies()
+        self.chrome.close()
+        return cookies
+
 
 if __name__ == '__main__':
-    sender = SeleniumChromeSender()
+    sender = Loginer()
     email = input('Enter your email: ')
     password = input('Enter your password: ')
-    sender.execute(email, password)
+    cookies = sender.execute(email, password)
+    for cookie in cookies:
+        print(cookie)

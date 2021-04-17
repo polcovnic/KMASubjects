@@ -8,6 +8,8 @@ requests = "*"
 beautifulsoup4 = "*"
 selenium = "*"
 selenium-requests = "*"
+pyrogram = "*"
+tgcrypto = "*"
 
 [dev-packages]
 

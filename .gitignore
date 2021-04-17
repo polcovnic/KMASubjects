@@ -1,3 +1,10 @@
 .idea
-saz_signuper/sess_id.json
+saz_signuper/cookies.json
 *.log
+config.ini
+*.session
+*.session-journal
+credentials.json
+cookies.json
+*.pyc
+html_files
