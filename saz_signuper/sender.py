@@ -10,7 +10,7 @@ from bs4 import BeautifulSoup
 # logger setup
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-file_handler = logging.FileHandler('sender.log')
+file_handler = logging.FileHandler('logs/saz_signuper/sender.log')
 formatter = logging.Formatter('[%(asctime)s] %(name)s %(levelname)s: %(message)s')
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)

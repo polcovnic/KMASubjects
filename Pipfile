@@ -10,6 +10,10 @@ selenium = "*"
 selenium-requests = "*"
 pyrogram = "*"
 tgcrypto = "*"
+flask = "*"
+flask-jwt = "*"
+flask-restful = "*"
+flask-sqlalchemy = "*"
 
 [dev-packages]
 

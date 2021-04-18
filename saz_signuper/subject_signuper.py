@@ -12,7 +12,7 @@ from saz_signuper.signuper import Signuper
 # logger setup
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-file_handler = logging.FileHandler('saz_signuper/subject_signuper.log')
+file_handler = logging.FileHandler('logs/saz_signuper/subject_signuper.log')
 formatter = logging.Formatter('[%(asctime)s] %(name)s %(levelname)s: %(message)s')
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)

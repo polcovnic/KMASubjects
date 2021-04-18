@@ -12,7 +12,7 @@ from saz_signuper.group_signuper import GroupSignuper
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-file_handler = logging.FileHandler('kma_subjects.log')
+file_handler = logging.FileHandler('logs/kma_subjects.log')
 formatter = logging.Formatter('[%(asctime)s] %(name)s %(levelname)s: %(message)s')
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)

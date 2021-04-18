@@ -8,3 +8,5 @@ credentials.json
 cookies.json
 *.pyc
 html_files
+data.db
+logs
