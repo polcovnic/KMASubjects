@@ -25,12 +25,12 @@ subject_list = [Subject('https://my.ukma.edu.ua/course/242211', 'Client-server d
 
 
 class KmaSubjects:
-    def __init__(self, phone_number: str = '', email: str = '', password: str = '', update=False):
+    def __init__(self, cookies, phone_number: str = '', email: str = '', password: str = '', update=False):
         self.phone_number = phone_number
         self.email = email
         self.password = password
         self.app: Client = None  # TODO client
-        self.cookies = dict()
+        self.cookies = cookies
         if email == '' or password == '':
             with open('credentials.json', 'r') as file:
                 credentials = json.load(file)

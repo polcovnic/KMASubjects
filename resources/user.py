@@ -1,5 +1,6 @@
 from flask_restful import Resource, reqparse
 from models.user import UserModel
+from models.cookie import CookieModel
 
 
 class UserRegister(Resource):
@@ -15,6 +16,13 @@ class UserRegister(Resource):
                         help="This field cannot be blank."
                         )
 
+    def get(self):
+        data = UserRegister.parser.parse_args()
+        user = UserModel.find_by_username(data['username'])
+        if user:
+            print(user.get_cookies())
+            return user.get_cookies()
+
     def post(self):
         data = UserRegister.parser.parse_args()
 
@@ -23,5 +31,6 @@ class UserRegister(Resource):
 
         user = UserModel(data['username'], data['password'])
         user.save_to_db()
+        user.save_cookies()
 
         return {"message": "User created successfully."}, 201

@@ -22,6 +22,7 @@ def create_tables():
 jwt = JWT(app, authenticate, identity)  # /auth
 
 api.add_resource(UserRegister, '/register')
+api.init_app(app)
 
 if __name__ == '__main__':
     db.init_app(app)

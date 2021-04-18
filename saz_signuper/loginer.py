@@ -95,7 +95,7 @@ class Loginer:
         #     with open(self.PHPSESSID_FILENAME, 'w') as file:
         #         json.dump(self.phpsessid, file)
 
-    def execute(self, email=None, password=None) -> list:  # returns cookie
+    def execute(self, email=None, password=None) -> list:  # returns cookies
         if not (email and password):  # checking for not nullable credentials
             logger.warning("Loginer has started without email or password or both")
             raise LeakOfDataException()
