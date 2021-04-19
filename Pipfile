@@ -11,7 +11,7 @@ selenium-requests = "*"
 pyrogram = "*"
 tgcrypto = "*"
 flask = "*"
-flask-jwt = "*"
+flask-jwt-Extended = "*"
 flask-restful = "*"
 flask-sqlalchemy = "*"
 

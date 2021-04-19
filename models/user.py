@@ -18,7 +18,15 @@ class UserModel(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80))
     password = db.Column(db.String(80))
+
     cookies = db.relationship('CookieModel', lazy='dynamic')
+
+    subjects = db.relationship('SubjectModel', lazy='dynamic')
+    subjects_date = db.Column(db.String)
+    groups = db.relationship('GroupModel', lazy='dynamic')
+    groups_date = db.Column(db.String)
+
+    telegram_status = db.Column(db.Boolean)
 
     def __init__(self, username, password):
         self.username = username
@@ -49,3 +57,18 @@ class UserModel(db.Model):
     @classmethod
     def find_by_id(cls, _id):
         return cls.query.filter_by(id=_id).first()
+
+    def json(self):
+        return {
+            "subjects": {
+                "body": [subject.json() for subject in self.subjects.all()],
+                "date": self.subjects_date
+            },
+            "groups": {
+                "body": [group.json() for group in self.groups.all()],
+                "date": self.groups_date
+            },
+            "telegram": {
+                "status": self.telegram_status
+            }
+        }
