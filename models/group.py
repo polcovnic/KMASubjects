@@ -19,7 +19,11 @@ class GroupModel(db.Model):
         self.user_id = user_id
 
     def json(self):
-        return {"link": self.link, "number": self.number}
+        return {
+            "link": self.link,
+            "number": self.number,
+            "name": self.name
+        }
 
     @classmethod
     def find_by_name(cls, name):

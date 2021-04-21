@@ -22,6 +22,7 @@ class Sender:
     HEADERS = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) Gecko/20100101 Firefox/80.0'}
     HTTP_BIN_URL = 'https://httpbin.org/ip'
     CHROME_EXECUTABLE = 'D:/ChromeDriver/chromedriver_win32/chromedriver.exe'
+    MAX_WORKING_PROXIES = 5
 
     def __init__(self):
         self.target_url = None
@@ -51,6 +52,8 @@ class Sender:
         return proxies
 
     def check_for_available_proxy(self, proxy):
+        if self.available_proxies > self.MAX_WORKING_PROXIES:
+            return None
         try:
             r = requests.get(self.HTTP_BIN_URL, headers=self.HEADERS,
                              proxies={'http': 'http://' + proxy, 'https': 'http://' + proxy}, timeout=1)
