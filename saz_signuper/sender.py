@@ -123,8 +123,6 @@ class Sender:
     def _update_proxies(self):
         thread = Thread(target=self._get_working_proxy)
         thread.start()
-        while self.first_available_proxy is None:
-            time.sleep(0.01)
         logger.info('Proxies are updated successfully')
 
     def get(self, target_url, params=None):
