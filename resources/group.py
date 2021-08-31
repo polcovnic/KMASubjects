@@ -7,6 +7,7 @@ from flask_cors import cross_origin
 from models.group import GroupModel
 from models.user import UserModel
 from saz_signuper.group_signuper import GroupSignuper
+from saz_signuper import telegram
 
 
 class Group(Resource):
@@ -30,9 +31,13 @@ class Group(Resource):
                 groups[group_id] = group['number']
                 subject_model = GroupModel(name, group_id, group['number'], user_id)
                 subject_model.save_to_db()
-            if date is None:
                 signuper = GroupSignuper(groups, user.get_cookies())
-                signuper.execute()
+                if date is None:
+                    signuper.execute()
+                else:
+
+                    telegram.start(signuper)
+
         except:
             return {"message": "Some error occurred"}, 500
         return {"message": "Successfully added Groups"}, 201
