@@ -17,7 +17,10 @@ class SubjectModel(db.Model):
         self.user_id = user_id
 
     def json(self):
-        return self.link
+        return {
+            'link': self.link,
+            'name': self.name
+        }
 
     @classmethod
     def find_by_name(cls, name):

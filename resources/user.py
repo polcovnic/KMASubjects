@@ -1,6 +1,5 @@
 from werkzeug.security import safe_str_cmp
 
-
 from flask_jwt_extended import (
     create_access_token,
     create_refresh_token,
@@ -8,6 +7,7 @@ from flask_jwt_extended import (
     get_jwt,
     get_jwt_identity,
     get_jti)
+from flask_cors import cross_origin
 
 from flask_restful import Resource, reqparse
 from models.user import UserModel
@@ -28,7 +28,7 @@ class UserRegister(Resource):
                         )
 
     def post(self):
-        data = UserRegister.parser.parse_args()
+        data = self.parser.parse_args()
 
         if UserModel.find_by_username(data['username']):
             return {"message": "A user with that username already exists"}, 400
@@ -41,18 +41,17 @@ class UserRegister(Resource):
 
 
 class User(Resource):
-    @classmethod
     @jwt_required()
-    def get(cls):
+    @cross_origin()
+    def get(self):
         # claims = get_jwt()
         # _id = claims['_id']
         user = UserModel.find_by_id(get_jwt_identity())
-
         if not user:
             return {'message': 'User not found'}
         return user.json()
 
-    @classmethod
+    @classmethod  # TODO
     def delete(cls, user_id):
         user = UserModel.find_by_id(user_id)
         if not user:
@@ -63,7 +62,7 @@ class User(Resource):
 
 class UserLogin(Resource):
     parser = reqparse.RequestParser()
-    parser.add_argument('username',
+    parser.add_argument('email',
                         type=str,
                         required=True,
                         help="This field cannot be blank."
@@ -74,12 +73,12 @@ class UserLogin(Resource):
                         help="This field cannot be blank."
                         )
 
+    @cross_origin()
+    def post(self):
+        data = self.parser.parse_args()
+        print(data)
 
-    @classmethod
-    def post(cls):
-        data = cls.parser.parse_args()
-
-        user = UserModel.find_by_username(data['username'])
+        user = UserModel.find_by_username(data['email'])
 
         if user and safe_str_cmp(user.password, data['password']):
             access_token = create_access_token(identity=user.id, fresh=True)
@@ -90,9 +89,15 @@ class UserLogin(Resource):
                    }, 200
         return {'message': 'Invalid credentials'}, 401
 
+    @cross_origin()
+    def options(self):
+        print('options')
+        return {'Allow': 'PUT'}, 200, {'Access-Control-Allow-Origin': '*'}
+
 
 class JWTGet(Resource):
     @jwt_required(optional=True)
+    @cross_origin()
     def get(self):
         user_id = get_jwt_identity()
         if user_id:
@@ -103,6 +108,7 @@ class JWTGet(Resource):
 
 class UserLogout(Resource):
     @jwt_required()
+    @cross_origin()
     def post(self):
         BLACKLIST.add(get_jwt()['jti'])
         return {'message': 'Successfully logged out'}
@@ -110,6 +116,7 @@ class UserLogout(Resource):
 
 class TokenRefresh(Resource):
     @jwt_required(refresh=True)
+    @cross_origin()
     def post(self):
         current_user = get_jwt_identity()
         new_token = create_access_token(identity=current_user, fresh=False)

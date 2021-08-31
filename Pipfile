@@ -14,6 +14,8 @@ flask = "*"
 flask-jwt-Extended = "*"
 flask-restful = "*"
 flask-sqlalchemy = "*"
+flask-cors = "*"
+pytelegrambotapi = "*"
 
 [dev-packages]
 
