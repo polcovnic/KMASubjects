@@ -76,7 +76,7 @@ class Sender:
             executor.submit(self.check_for_available_proxy, proxy)
         executor.shutdown()
         self.end_of_getting_proxies = True
-        print(self.end_of_getting_proxies)
+        # print(self.end_of_getting_proxies)
 
     def _proxy_generator(self):
         for proxy in self.available_proxies:

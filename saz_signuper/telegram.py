@@ -13,5 +13,6 @@ def start(signuper: Signuper):
     def from_saz(client, message):
         if re.search('Поточний етап у САЗ', message.text) is not None:
             signuper.execute()
-            requests.post()
+            app.stop()
     app.run()
+
