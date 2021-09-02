@@ -46,8 +46,9 @@ class Loginer:
                 chrome_options.add_argument(f'--proxy-server={Sender().get_working_proxies()[0]}')
             self.chrome = webdriver.Chrome(options=chrome_options,
                                            executable_path='D:/ChromeDriver/chromedriver_win32/chromedriver.exe')
-        except:
+        except Exception as e:
             logger.error("Can't start chrome")
+            raise e
         else:
             logger.debug('Chrome started successfully')
 

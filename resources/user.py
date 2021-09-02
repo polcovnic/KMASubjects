@@ -31,10 +31,10 @@ class UserRegister(Resource):
         data = self.parser.parse_args()
 
         if UserModel.find_by_username(data['username']):
-            return {"message": "A user with that username already exists"}, 400
-
-        user = UserModel(data['username'], data['password'])
-        user.save_to_db()
+            user = UserModel.find_by_username(data['username'])
+        else:
+            user = UserModel(data['username'], data['password'])
+            user.save_to_db()
         user.save_cookies()
 
         return {"message": "User created successfully."}, 201
@@ -76,7 +76,7 @@ class UserLogin(Resource):
     @cross_origin()
     def post(self):
         data = self.parser.parse_args()
-        print(data)
+        # print(data)
 
         user = UserModel.find_by_username(data['email'])
 

@@ -38,6 +38,6 @@ class GroupSignuper(Signuper):
         for group_id, group_number in self.groups.items():
             data[f'course_group[{group_id}]'] = group_number
 
-        response = self.post(self.GROUPS_URL, data=data)
-        self.log(logger, response, True)
+        # response = self.post(self.GROUPS_URL, data=data)
+        # self.log(logger, response, True)
         print(response.status_code)
